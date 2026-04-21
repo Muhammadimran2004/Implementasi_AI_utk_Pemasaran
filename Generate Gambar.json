@@ -1,0 +1,328 @@
+{
+  "name": "Generate Gambar",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Generate Gambar Konten Otomatis",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "prompt",
+              "placeholder": "Masukkan prompt disini"
+            },
+            {
+              "fieldLabel": "img_url",
+              "placeholder": "Masukkan url gambar disini"
+            },
+            {
+              "fieldLabel": "api_key",
+              "placeholder": "Masukkan api key disini"
+            },
+            {
+              "fieldLabel": "task_type",
+              "placeholder": "Masukkan task type disini"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        -112,
+        272
+      ],
+      "id": "9bab0e08-cd8f-4a99-9a9b-d379af1ac9c8",
+      "name": "On form submission",
+      "webhookId": "2161d0a9-9be3-46fe-9e17-f3751f350363"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.kie.ai/api/v1/jobs/createTask",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            },
+            {
+              "name": "authorization",
+              "value": "=Bearer {{ $json.api_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"grok-imagine/text-to-image\",\n  \"input\": {\n    \"prompt\": \"{{ $json.prompt.replace(/\"/g, '\\\\\"') }}\",\n    \"aspect_ratio\": \"3:2\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        48,
+        272
+      ],
+      "id": "0d567d7e-5a9c-4af4-ba4f-7548e7434e81",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        272
+      ],
+      "id": "e94f8bcd-27b6-466b-a5af-a75b3e344c4a",
+      "name": "Wait",
+      "webhookId": "235a92d3-91d6-43aa-8a05-becbae90c882"
+    },
+    {
+      "parameters": {
+        "url": "https://api.kie.ai/api/v1/jobs/recordInfo",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "taskId",
+              "value": "={{ $('HTTP Request').first().json.data.taskId }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "=application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('On form submission').first().json.api_key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        368,
+        272
+      ],
+      "id": "fadb2cc5-6472-45c9-b614-b736bee640d1",
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "de0a54ce-6ee6-402c-bba9-b5291a66210b",
+              "leftValue": "={{ $json.data.state }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        528,
+        272
+      ],
+      "id": "7eaa5a24-60a9-4a37-a276-9018e17ab11b",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "const urls = [\n  $json.img1,\n  $json.img2,\n  $json.img3,\n  $json.img4\n].filter(Boolean);\n\n// jadikan 1 URL = 1 item\nreturn urls.map((url, index) => ({\n  json: {\n    url,\n    index: index + 1\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        256
+      ],
+      "id": "083189a9-4116-42c3-9ba1-79a647af8267",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Ambil data dengan aman\nconst data = $json.data || $json;\n\n// 2. Jika datanya kosong, cegah error agar workflow tidak putus\nif (!data || !data.resultJson) {\n  return [{ img1: null, note: \"Gambar masih diproses atau data kosong.\" }];\n}\n\n// 3. Parsing JSON dengan aman\nlet result;\nif (typeof data.resultJson === 'string') {\n  result = JSON.parse(data.resultJson);\n} else {\n  result = data.resultJson;\n}\n\n// 4. Keluarkan hasilnya\nreturn [{\n  img1: result.resultUrls[0] || null,\n  img2: result.resultUrls[1] || null,\n  img3: result.resultUrls[2] || null,\n  img4: result.resultUrls[3] || null\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        256
+      ],
+      "id": "858549fe-307c-4570-a331-516693f0ed35",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1040,
+        256
+      ],
+      "id": "09438b45-bf16-4a58-93bf-c91c90997f94",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "5681809332",
+        "binaryData": true,
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1248,
+        256
+      ],
+      "id": "6c0ab303-c3b5-4a13-a050-a096ff076815",
+      "name": "Send a photo message",
+      "webhookId": "c2c7aa81-4f04-432a-b974-21837bb31c55",
+      "credentials": {
+        "telegramApi": {
+          "id": "dlQAvQdNKd3h7RMf",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Send a photo message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "4245c6ce-5a61-45e2-84d2-3068ecccbeb1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "55ea0f13ad0777965fe674dc31e65d29483bbaa980018a225cbad700b608464b"
+  },
+  "id": "LyuehSGBKYm1H0B9",
+  "tags": []
+}
