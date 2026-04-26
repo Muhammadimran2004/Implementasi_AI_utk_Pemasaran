@@ -1,0 +1,291 @@
+{
+  "name": "Auto Posting Schedule",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "id": "af6fa1a8-fcd0-4fdd-aa1c-13093f6658d0",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1HUcqFvCG_IIDnofBV1NPWNq7-o7uFr94-yVjCGPzBAk",
+          "mode": "list",
+          "cachedResultName": "Copy of Auto Posting Scheduler",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HUcqFvCG_IIDnofBV1NPWNq7-o7uFr94-yVjCGPzBAk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HUcqFvCG_IIDnofBV1NPWNq7-o7uFr94-yVjCGPzBAk/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "e673159a-2138-4ca2-81b2-8deae42a74c3",
+      "name": "Get Rows",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        208,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "T9VbJZyZ0a2Sd690",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// Set waktu saat ini ke WIB (Asia/Jakarta)\nconst now = new Date(new Date().toLocaleString(\"en-US\", { timeZone: \"Asia/Jakarta\" }));\n\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n\n  const tanggal = data[\"Scheduled Date\"];\n  const waktu = data[\"Scheduled Time\"];\n  const status = data[\"Status\"];\n\n  // Abaikan jika data tidak lengkap atau status bukan pending (case insensitive)\n  if (!tanggal || !waktu || status?.toLowerCase() !== \"pending\") continue;\n\n  let scheduled;\n\n  // --- PERBAIKAN FORMAT TANGGAL ---\n  // Cek apakah format tanggal menggunakan garis miring (DD/MM/YYYY)\n  if (tanggal.includes(\"/\")) {\n    // Pecah teks berdasarkan garis miring [Hari, Bulan, Tahun]\n    const [day, month, year] = tanggal.split(\"/\");\n    \n    // Gabungkan ulang menjadi standar internasional (YYYY-MM-DD) yang aman dibaca JavaScript\n    scheduled = new Date(`${year}-${month}-${day} ${waktu}`);\n  } else {\n    // Fallback jika formatnya sudah benar (misal YYYY-MM-DD dari awal)\n    scheduled = new Date(`${tanggal} ${waktu}`);\n  }\n  // --------------------------------\n\n  // Jika setelah dikonversi hasilnya tetap bukan tanggal yang valid, lewati\n  if (isNaN(scheduled)) continue;\n\n  // Jika waktu jadwal lebih kecil atau sama dengan waktu sekarang, masukkan ke hasil\n  if (scheduled <= now) {\n    results.push({\n      json: {\n        ...data,\n        row_number: data.row_number,\n        Status: \"Published\"\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "312aef65-c02a-429b-8dcf-f4cbb7cf0b61",
+      "name": "Filter & Time Logic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "5681809332",
+        "text": "={{ $json.Content }}",
+        "additionalFields": {}
+      },
+      "id": "69937ce5-ad24-4394-94bd-ea8f38cec53a",
+      "name": "Send Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        608,
+        0
+      ],
+      "webhookId": "6805cdb3-d33e-4d0a-ab41-a672c1eca01c",
+      "credentials": {
+        "telegramApi": {
+          "id": "dlQAvQdNKd3h7RMf",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "=row_number",
+              "stringValue": "={{ $('Filter & Time Logic').item.json.row_number }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6069850f-8df4-417d-aac6-d1878ed96d92",
+      "name": "Prepare Update",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1HUcqFvCG_IIDnofBV1NPWNq7-o7uFr94-yVjCGPzBAk",
+          "mode": "list",
+          "cachedResultName": "Copy of Auto Posting Scheduler",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HUcqFvCG_IIDnofBV1NPWNq7-o7uFr94-yVjCGPzBAk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HUcqFvCG_IIDnofBV1NPWNq7-o7uFr94-yVjCGPzBAk/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Publish",
+            "row_number": "={{ $json.row_number }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Content",
+              "displayName": "Content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Scheduled Date",
+              "displayName": "Scheduled Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Scheduled Time",
+              "displayName": "Scheduled Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "ecf881bf-b576-454b-a5ef-5a8898c1af05",
+      "name": "Update Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        1008,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "T9VbJZyZ0a2Sd690",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Rows": {
+      "main": [
+        [
+          {
+            "node": "Filter & Time Logic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter & Time Logic": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Telegram": {
+      "main": [
+        [
+          {
+            "node": "Prepare Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Update": {
+      "main": [
+        [
+          {
+            "node": "Update Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "0e829120-2964-4bae-986f-7fd041f4a3e4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "55ea0f13ad0777965fe674dc31e65d29483bbaa980018a225cbad700b608464b"
+  },
+  "id": "C7vPJesdGPyh9t6i",
+  "tags": []
+}
